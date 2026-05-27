@@ -23,8 +23,8 @@ Route::middleware('logged-user')->group(function()use ($url,$controllerClass){
     Route::post($url.'/save-item', [$controllerClass, 'saveItem']);
 });
 
-$url='setup/dealer_types';
-$controllerClass= Controllers\setup\DealerTypesController::class;
+$url='setup/crop-groups';
+$controllerClass= Controllers\setup\CropGroupsController::class;
 /** @noinspection DuplicatedCode */
 Route::middleware('logged-user')->group(function()use ($url,$controllerClass){
     Route::match(['GET','POST'],$url.'/initialize', [$controllerClass, 'initialize']);

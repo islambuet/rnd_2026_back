@@ -12,9 +12,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 
-class CropsController extends RootController
+class CropGroupsController extends RootController
 {
-    public $api_url = 'setup/crops';
+    public $api_url = 'setup/crop-groups';
     public $permissions;
 
     public function __construct()
@@ -26,16 +26,7 @@ class CropsController extends RootController
     public function initialize(): JsonResponse
     {
         if ($this->permissions->action_0 == 1) {
-            $response= [];
-            $response['error'] = '';
-            $response['permissions'] = $this->permissions;
-            $response['hidden_columns'] =TaskHelper::getHiddenColumns($this->api_url,$this->user);
-            $response['crop_groups'] = DB::table(TABLE_CROP_GROUPS)
-                ->select('id', 'name')
-                ->orderBy('ordering', 'ASC')
-                ->where('status', SYSTEM_STATUS_ACTIVE)
-                ->get();
-            return response()->json($response);
+            return response()->json(['error'=>'','permissions'=>$this->permissions,'hidden_columns'=>TaskHelper::getHiddenColumns($this->api_url,$this->user)]);
         } else {
             return response()->json(['error' => 'ACCESS_DENIED', 'messages' => __('You do not have access on this page')]);
         }
@@ -45,12 +36,9 @@ class CropsController extends RootController
     {
         if ($this->permissions->action_0 == 1) {
             $perPage = $request->input('perPage', 50);
-            $query=DB::table(TABLE_CROPS.' as crops');
-            $query->select('crops.*');
-            $query->join(TABLE_CROP_GROUPS.' as crop_groups', 'crop_groups.id', '=', 'crops.crop_group_id');
-            $query->addSelect('crop_groups.name as crop_group_name');
-            $query->orderBy('crops.id', 'DESC');
-            $query->where('crops.status', '!=', SYSTEM_STATUS_DELETE);//
+            $query=DB::table(TABLE_CROP_GROUPS);
+            $query->orderBy('id', 'DESC');
+            $query->where('status', '!=', SYSTEM_STATUS_DELETE);//
             if ($perPage == -1) {
                 $perPage = $query->count();
                 if($perPage<1){
@@ -67,12 +55,7 @@ class CropsController extends RootController
     public function getItem(Request $request, $itemId): JsonResponse
     {
         if ($this->permissions->action_0 == 1) {
-            $query=DB::table(TABLE_CROPS.' as crops');
-            $query->select('crops.*');
-            $query->join(TABLE_CROP_GROUPS.' as crop_groups', 'crop_groups.id', '=', 'crops.crop_group_id');
-            $query->addSelect('crop_groups.name as crop_group_name');
-            $query->where('crops.id','=',$itemId);
-            $result = $query->first();
+            $result = DB::table(TABLE_CROP_GROUPS)->find($itemId);
             if (!$result) {
                 return response()->json(['error' => 'ITEM_NOT_FOUND', 'messages' => __('Invalid Id ' . $itemId)]);
             }
@@ -101,7 +84,6 @@ class CropsController extends RootController
         $validation_rule = [];
         $validation_rule['name'] = ['required'];
         $validation_rule['code'] = ['nullable'];
-        $validation_rule['crop_group_id'] = ['required','numeric'];
         $validation_rule['replica'] = [Rule::in([SYSTEM_STATUS_YES, SYSTEM_STATUS_NO])];
         $validation_rule['initial_plants']=['numeric'];
         $validation_rule['ordering']=['numeric'];
@@ -114,7 +96,7 @@ class CropsController extends RootController
 
         //edit change checking
         if ($itemId > 0) {
-            $result = DB::table(TABLE_CROPS)->select(array_keys($validation_rule))->find($itemId);
+            $result = DB::table(TABLE_CROP_GROUPS)->select(array_keys($validation_rule))->find($itemId);
             if (!$result) {
                 return response()->json(['error' => 'ITEM_NOT_FOUND', 'messages' => __('Invalid Id ' . $itemId)]);
             }
@@ -144,20 +126,20 @@ class CropsController extends RootController
         try {
             $time = Carbon::now();
             $dataHistory = [];
-            $dataHistory['table_name'] = TABLE_CROPS;
+            $dataHistory['table_name'] = TABLE_CROP_GROUPS;
             $dataHistory['controller'] = (new \ReflectionClass(__CLASS__))->getShortName();
             $dataHistory['method'] = __FUNCTION__;
             $newId = $itemId;
             if ($itemId > 0) {
                 $itemNew['updated_by'] = $this->user->id;
                 $itemNew['updated_at'] = $time;
-                DB::table(TABLE_CROPS)->where('id', $itemId)->update($itemNew);
+                DB::table(TABLE_CROP_GROUPS)->where('id', $itemId)->update($itemNew);
                 $dataHistory['table_id'] = $itemId;
                 $dataHistory['action'] = DB_ACTION_EDIT;
             } else {
                 $itemNew['created_by'] = $this->user->id;
                 $itemNew['created_at'] = $time;
-                $newId = DB::table(TABLE_CROPS)->insertGetId($itemNew);
+                $newId = DB::table(TABLE_CROP_GROUPS)->insertGetId($itemNew);
                 $dataHistory['table_id'] = $newId;
                 $dataHistory['action'] = DB_ACTION_ADD;
             }
