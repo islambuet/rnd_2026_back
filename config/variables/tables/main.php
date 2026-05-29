@@ -10,6 +10,7 @@ define('TABLE_COMPETITORS', $db_main.'.competitors');
 
 define('TABLE_CROP_GROUPS', $db_main.'.crop_groups');
 define('TABLE_CROPS', $db_main.'.crops');
+define('TABLE_CROP_FEATURES', $db_main.'.crop_features');
 define('TABLE_CROP_TYPES', $db_main.'.crop_types');
 define('TABLE_VARIETIES', $db_main.'.varieties');
 

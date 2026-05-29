@@ -12,9 +12,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 
-class VarietiesController extends RootController
+class CropFeaturesController extends RootController
 {
-    public $api_url = 'setup/varieties';
+    public $api_url = 'setup/crop-features';
     public $permissions;
 
     public function __construct()
@@ -26,37 +26,12 @@ class VarietiesController extends RootController
     public function initialize(): JsonResponse
     {
         if ($this->permissions->action_0 == 1) {
-            $response= [];
-            $response['error'] = '';
-            $response['permissions'] = $this->permissions;
-            $response['hidden_columns'] =TaskHelper::getHiddenColumns($this->api_url,$this->user);
-
-            $response['crops'] = DB::table(TABLE_CROPS)
+            $crops = DB::table(TABLE_CROPS)
                 ->select('id', 'name')
                 ->orderBy('ordering', 'ASC')
                 ->where('status', SYSTEM_STATUS_ACTIVE)
                 ->get();
-            $response['crop_types'] = DB::table(TABLE_CROP_TYPES)
-                ->select('id', 'name','crop_id')
-                ->orderBy('ordering', 'ASC')
-                ->where('status', SYSTEM_STATUS_ACTIVE)
-                ->get();
-            $response['crop_features'] = DB::table(TABLE_CROP_FEATURES)
-                ->select('id', 'name','crop_id')
-                ->orderBy('ordering', 'ASC')
-                ->where('status', SYSTEM_STATUS_ACTIVE)
-                ->get();
-            $response['principals'] = DB::table(TABLE_PRINCIPALS)
-                ->select('id', 'name')
-                ->orderBy('ordering', 'ASC')
-                ->where('status', SYSTEM_STATUS_ACTIVE)
-                ->get();
-            $response['competitors'] = DB::table(TABLE_COMPETITORS)
-                ->select('id', 'name')
-                ->orderBy('ordering', 'ASC')
-                ->where('status', SYSTEM_STATUS_ACTIVE)
-                ->get();
-            return response()->json($response);
+            return response()->json(['error'=>'','permissions'=>$this->permissions,'hidden_columns'=>TaskHelper::getHiddenColumns($this->api_url,$this->user),'crops'=>$crops]);
         } else {
             return response()->json(['error' => 'ACCESS_DENIED', 'messages' => __('You do not have access on this page')]);
         }
@@ -66,19 +41,13 @@ class VarietiesController extends RootController
     {
         if ($this->permissions->action_0 == 1) {
             $perPage = $request->input('perPage', 50);
-            //$query=DB::table(TABLE_CROP_TYPES);
-            $query=DB::table(TABLE_VARIETIES.' as varieties');
-            $query->select('varieties.*');
-            $query->join(TABLE_CROP_TYPES.' as crop_types', 'crop_types.id', '=', 'varieties.crop_type_id');
-            $query->addSelect('crop_types.name as crop_type_name');
+            //$query=DB::table(TABLE_CROP_FEATURES);
+            $query=DB::table(TABLE_CROP_FEATURES.' as crop_types');
+            $query->select('crop_types.*');
             $query->join(TABLE_CROPS.' as crops', 'crops.id', '=', 'crop_types.crop_id');
             $query->addSelect('crops.name as crop_name');
-            $query->leftJoin(TABLE_PRINCIPALS.' as principals', 'principals.id', '=', 'varieties.principal_id');
-            $query->addSelect('principals.name as principal_name');
-            $query->leftJoin(TABLE_COMPETITORS.' as competitors', 'competitors.id', '=', 'varieties.competitor_id');
-            $query->addSelect('competitors.name as competitor_name');
-            $query->orderBy('varieties.id', 'DESC');
-            $query->where('varieties.status', '!=', SYSTEM_STATUS_DELETE);//
+            $query->orderBy('crop_types.id', 'DESC');
+            $query->where('crop_types.status', '!=', SYSTEM_STATUS_DELETE);//
             if ($perPage == -1) {
                 $perPage = $query->count();
                 if($perPage<1){
@@ -95,17 +64,11 @@ class VarietiesController extends RootController
     public function getItem(Request $request, $itemId): JsonResponse
     {
         if ($this->permissions->action_0 == 1) {
-            $query=DB::table(TABLE_VARIETIES.' as varieties');
-            $query->select('varieties.*');
-            $query->join(TABLE_CROP_TYPES.' as crop_types', 'crop_types.id', '=', 'varieties.crop_type_id');
-            $query->addSelect('crop_types.name as crop_type_name');
+            $query=DB::table(TABLE_CROP_FEATURES.' as crop_types');
+            $query->select('crop_types.*');
             $query->join(TABLE_CROPS.' as crops', 'crops.id', '=', 'crop_types.crop_id');
-            $query->addSelect('crops.name as crop_name','crops.id as crop_id');
-            $query->where('varieties.id','=',$itemId);
-            $query->leftJoin(TABLE_PRINCIPALS.' as principals', 'principals.id', '=', 'varieties.principal_id');
-            $query->addSelect('principals.name as principal_name');
-            $query->leftJoin(TABLE_COMPETITORS.' as competitors', 'competitors.id', '=', 'varieties.competitor_id');
-            $query->addSelect('competitors.name as competitor_name');
+            $query->addSelect('crops.name as crop_name');
+            $query->where('crop_types.id','=',$itemId);
             $result = $query->first();
             if (!$result) {
                 return response()->json(['error' => 'ITEM_NOT_FOUND', 'messages' => __('Invalid Id ' . $itemId)]);
@@ -122,7 +85,7 @@ class VarietiesController extends RootController
         //permission checking start
         if ($itemId > 0) {
             if ($this->permissions->action_2 != 1) {
-                return response()->json(['error' => 'ACCESS_DENIED', 'messages' => __('You do not have Edit access')]);
+                return response()->json(['error' => 'ACCESS_DENIED', 'messages' => __('You do not have add access')]);
             }
         } else {
             if ($this->permissions->action_1 != 1) {
@@ -134,38 +97,18 @@ class VarietiesController extends RootController
         //Input validation start
         $validation_rule = [];
         $validation_rule['name'] = ['required'];
-        $validation_rule['crop_type_id'] = ['required','numeric'];
-        $validation_rule['crop_feature_ids'] = ['nullable'];
-        $validation_rule['whose'] = [Rule::in(['ARM', 'Principal','Competitor'])];
-        $validation_rule['principal_id']=['numeric','nullable'];
-        $validation_rule['competitor_id']=['numeric','nullable'];
+        $validation_rule['crop_id'] = ['required','numeric'];
         $validation_rule['ordering']=['numeric'];
         $validation_rule['status'] = [Rule::in([SYSTEM_STATUS_ACTIVE, SYSTEM_STATUS_INACTIVE])];
-        $validation_rule['retrial'] = [Rule::in([SYSTEM_STATUS_YES, SYSTEM_STATUS_NO])];
+
         $itemNew = $request->input('item');
-        if($itemNew['whose']=='Principal'){
-            if(!($itemNew['principal_id']>0)){
-                return response()->json(['error' => 'VALIDATION_FAILED', 'messages' => __('Principal Required')]);
-            }
-        }
-        else if($itemNew['whose']=='Competitor'){
-            if(!($itemNew['competitor_id']>0)){
-                return response()->json(['error' => 'VALIDATION_FAILED', 'messages' => __('Competitor Required')]);
-            }
-        }
-        if(isset($itemNew['crop_feature_ids'])){
-            $itemNew['crop_feature_ids']=','.implode(',',$itemNew['crop_feature_ids']).',';
-        }
-        else{
-            $itemNew['crop_feature_ids']=',';
-        }
         $itemOld = [];
 
         $this->validateInputKeys($itemNew, array_keys($validation_rule));
 
         //edit change checking
         if ($itemId > 0) {
-            $result = DB::table(TABLE_VARIETIES)->select(array_keys($validation_rule))->find($itemId);
+            $result = DB::table(TABLE_CROP_FEATURES)->select(array_keys($validation_rule))->find($itemId);
             if (!$result) {
                 return response()->json(['error' => 'ITEM_NOT_FOUND', 'messages' => __('Invalid Id ' . $itemId)]);
             }
@@ -200,20 +143,20 @@ class VarietiesController extends RootController
         try {
             $time = Carbon::now();
             $dataHistory = [];
-            $dataHistory['table_name'] = TABLE_VARIETIES;
+            $dataHistory['table_name'] = TABLE_CROP_FEATURES;
             $dataHistory['controller'] = (new \ReflectionClass(__CLASS__))->getShortName();
             $dataHistory['method'] = __FUNCTION__;
             $newId = $itemId;
             if ($itemId > 0) {
                 $itemNew['updated_by'] = $this->user->id;
                 $itemNew['updated_at'] = $time;
-                DB::table(TABLE_VARIETIES)->where('id', $itemId)->update($itemNew);
+                DB::table(TABLE_CROP_FEATURES)->where('id', $itemId)->update($itemNew);
                 $dataHistory['table_id'] = $itemId;
                 $dataHistory['action'] = DB_ACTION_EDIT;
             } else {
                 $itemNew['created_by'] = $this->user->id;
                 $itemNew['created_at'] = $time;
-                $newId = DB::table(TABLE_VARIETIES)->insertGetId($itemNew);
+                $newId = DB::table(TABLE_CROP_FEATURES)->insertGetId($itemNew);
                 $dataHistory['table_id'] = $newId;
                 $dataHistory['action'] = DB_ACTION_ADD;
             }
@@ -229,8 +172,7 @@ class VarietiesController extends RootController
             DB::commit();
 
             return response()->json(['error' => '', 'messages' => 'Data (' . $newId . ')' . ($itemId > 0 ? 'Updated' : 'Created') . ')  Successfully']);
-        }
-        catch (\Exception $ex) {
+        } catch (\Exception $ex) {
             DB::rollback();
             return response()->json(['error' => 'DB_SAVE_FAILED', 'messages' => __('Failed to save.')]);
         }
